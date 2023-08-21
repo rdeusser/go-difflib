@@ -103,9 +103,7 @@ func NewMatcher(a, b []string) *SequenceMatcher {
 	return &m
 }
 
-func NewMatcherWithJunk(a, b []string, autoJunk bool,
-	isJunk func(string) bool) *SequenceMatcher {
-
+func NewMatcherWithJunk(a, b []string, autoJunk bool, isJunk func(string) bool) *SequenceMatcher {
 	m := SequenceMatcher{IsJunk: isJunk, autoJunk: autoJunk}
 	m.SetSeqs(a, b)
 	return &m
@@ -199,12 +197,15 @@ func (m *SequenceMatcher) isBJunk(s string) bool {
 // If IsJunk is not defined:
 //
 // Return (i,j,k) such that a[i:i+k] is equal to b[j:j+k], where
-//     alo <= i <= i+k <= ahi
-//     blo <= j <= j+k <= bhi
+//
+//	alo <= i <= i+k <= ahi
+//	blo <= j <= j+k <= bhi
+//
 // and for all (i',j',k') meeting those conditions,
-//     k >= k'
-//     i <= i'
-//     and if i == i', j <= j'
+//
+//	k >= k'
+//	i <= i'
+//	and if i == i', j <= j'
 //
 // In other words, of all maximal matching blocks, return one that
 // starts earliest in a, and of all those maximal matching blocks that
@@ -437,8 +438,10 @@ func (m *SequenceMatcher) GetGroupedOpCodes(n int) [][]OpCode {
 		// End the current group and start a new one whenever
 		// there is a large range with no changes.
 		if c.Tag == 'e' && i2-i1 > nn {
-			group = append(group, OpCode{c.Tag, i1, min(i2, i1+n),
-				j1, min(j2, j1+n)})
+			group = append(group, OpCode{
+				c.Tag, i1, min(i2, i1+n),
+				j1, min(j2, j1+n),
+			})
 			groups = append(groups, group)
 			group = []OpCode{}
 			i1, j1 = max(i1, i2-n), max(j1, j2-n)
@@ -535,6 +538,7 @@ type UnifiedDiff struct {
 	ToDate   string   // Second file time
 	Eol      string   // Headers end of line, defaults to LF
 	Context  int      // Number of context lines
+	Color    bool     // Use ANSI color in output
 }
 
 // Compare two sequences of lines; generate the delta as a unified diff.
@@ -570,6 +574,14 @@ func WriteUnifiedDiff(writer io.Writer, diff UnifiedDiff) error {
 
 	if len(diff.Eol) == 0 {
 		diff.Eol = "\n"
+	}
+
+	removeFormat := "-%s"
+	addFormat := "-%s"
+
+	if diff.Color {
+		removeFormat = "\x1b[31m-%s\x1b[0m"
+		addFormat = "\x1b[32m+%s\x1b[0m"
 	}
 
 	started := false
@@ -614,14 +626,14 @@ func WriteUnifiedDiff(writer io.Writer, diff UnifiedDiff) error {
 			}
 			if c.Tag == 'r' || c.Tag == 'd' {
 				for _, line := range diff.A[i1:i2] {
-					if err := ws("-" + line); err != nil {
+					if err := ws(fmt.Sprintf(removeFormat, line)); err != nil {
 						return err
 					}
 				}
 			}
 			if c.Tag == 'r' || c.Tag == 'i' {
 				for _, line := range diff.B[j1:j2] {
-					if err := ws("+" + line); err != nil {
+					if err := ws(fmt.Sprintf(addFormat, line)); err != nil {
 						return err
 					}
 				}
